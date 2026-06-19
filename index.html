@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WPoets Team 9 Lucky Draw</title>
+<style>
+body{margin:0;font-family:Arial;background:#0f172a;color:#fff;text-align:center}
+h1{margin:20px 0}
+.wrap{max-width:1000px;margin:auto;padding:20px}
+canvas{background:#111827;border-radius:50%;box-shadow:0 0 25px rgba(255,255,255,.15)}
+button{padding:12px 18px;margin:5px;border:0;border-radius:8px;cursor:pointer;font-weight:bold}
+#spin{background:#22c55e;color:#fff} #next{background:#3b82f6;color:#fff}
+#reset{background:#ef4444;color:#fff} #export{background:#a855f7;color:#fff}
+.panel{margin-top:15px;padding:12px;background:#1e293b;border-radius:10px}
+#winner{font-size:24px;font-weight:bold}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🎉 WPoets Team 9 Lucky Draw 🎉</h1>
+<h2 id="prize">Round 1 - ₹2,000 Amazon Voucher</h2>
+
+<div style="position:relative;display:inline-block">
+<div style="position:absolute;left:50%;top:-5px;transform:translateX(-50%);font-size:42px">▼</div>
+<canvas id="wheel" width="600" height="600"></canvas>
+</div>
+
+<div>
+<button id="spin">SPIN</button>
+<button id="next">NEXT ROUND</button>
+<button id="reset">RESET</button>
+<button id="export">EXPORT JSON</button>
+</div>
+
+<div class="panel">
+<div id="status">Ready</div>
+<div id="winner"></div>
+<div id="history"></div>
+</div>
+</div>
+
+<script>
+const original=["Sandip","Snehal","Sneha","Dhiraj","Imdad","Rinku"];
+let players=[...original];
+let winners=[];
+let round=1;
+let rotation=0;
+let spinning=false;
+
+const canvas=document.getElementById("wheel");
+const ctx=canvas.getContext("2d");
+
+function draw(){
+ ctx.clearRect(0,0,600,600);
+ const cx=300,cy=300,r=280;
+ const colors=["#f59e0b","#ef4444","#10b981","#3b82f6","#8b5cf6","#ec4899"];
+ const seg=(Math.PI*2)/players.length;
+
+ players.forEach((name,i)=>{
+   const start=i*seg+rotation;
+   const end=start+seg;
+   ctx.beginPath();
+   ctx.moveTo(cx,cy);
+   ctx.arc(cx,cy,r,start,end);
+   ctx.fillStyle=colors[i%colors.length];
+   ctx.fill();
+
+   ctx.save();
+   ctx.translate(cx,cy);
+   ctx.rotate(start+seg/2);
+   ctx.fillStyle="white";
+   ctx.font="18px Arial";
+   ctx.fillText(name,170,0);
+   ctx.restore();
+ });
+
+ ctx.beginPath();
+ ctx.arc(cx,cy,50,0,Math.PI*2);
+ ctx.fillStyle="#111";
+ ctx.fill();
+ ctx.fillStyle="white";
+ ctx.font="bold 20px Arial";
+ ctx.textAlign="center";
+ ctx.fillText("SPIN",300,307);
+}
+draw();
+
+function secureRandom(max){
+ const a=new Uint32Array(1);
+ crypto.getRandomValues(a);
+ return a[0]%max;
+}
+
+document.getElementById("spin").onclick=()=>{
+
+ if(spinning) return;
+
+ // Prevent multiple Round 1 winners
+ if(round === 1 && winners.filter(w => w.round === 1).length >= 1){
+    alert("Round 1 completed. Click NEXT ROUND.");
+    return;
+ }
+
+ // Prevent multiple Round 2 winners
+ if(round === 2 && winners.filter(w => w.round === 2).length >= 1){
+    alert("Lucky Draw Completed.");
+    return;
+ }
+
+ spinning=true;
+
+ const winnerIndex=secureRandom(players.length);
+ const seg=(Math.PI*2)/players.length;
+
+ // pointer at top = -PI/2
+ const targetRotation = (-Math.PI/2) - (winnerIndex*seg + seg/2);
+ const finalRotation = targetRotation + (Math.PI * 2 * 40);
+ const start=rotation;
+ const duration=25000;
+ const winnerName=players[winnerIndex];
+
+ let st=null;
+ function anim(ts){
+   if(!st) st=ts;
+   const p=Math.min((ts-st)/duration,1);
+   const ease=1-Math.pow(1-p,5);
+
+   rotation=start+(finalRotation-start)*ease;
+   draw();
+
+   if(p<1){
+      requestAnimationFrame(anim);
+   }else{
+      rotation=targetRotation%(Math.PI*2);
+      draw();
+
+      const prize=round===1?"₹2,000 Amazon Voucher":"₹3,000 Amazon Voucher";
+      winners.push({round,winner:winnerName,prize});
+      document.getElementById("winner").innerHTML="🏆 Winner: "+winnerName+" - "+prize;
+      document.getElementById("history").innerHTML=winners.map(x=>`Round ${x.round}: ${x.winner} (${x.prize})`).join("<br>");
+      document.getElementById("status").innerText="Winner Selected";
+      spinning=false;
+   }
+ }
+ requestAnimationFrame(anim);
+};
+
+document.getElementById("next").onclick=()=>{
+ if(round!==1){alert("Already in Round 2");return;}
+ if(winners.length!==1){alert("Complete Round 1 first");return;}
+
+ players=players.filter(x=>x!==winners[0].winner);
+ round=2;
+ rotation=0;
+ draw();
+ document.getElementById("prize").innerText="Round 2 - ₹3,000 Amazon Voucher";
+ document.getElementById("winner").innerHTML="";
+ document.getElementById("status").innerText="Round 2 Ready";
+};
+
+document.getElementById("reset").onclick=()=>{
+ if(!confirm("Reset Lucky Draw?")) return;
+ players=[...original];
+ winners=[];
+ round=1;
+ rotation=0;
+ draw();
+ document.getElementById("prize").innerText="Round 1 - ₹2,000 Amazon Voucher";
+ document.getElementById("winner").innerHTML="";
+ document.getElementById("history").innerHTML="";
+ document.getElementById("status").innerText="Ready";
+};
+
+document.getElementById("export").onclick=()=>{
+ const blob=new Blob([JSON.stringify(winners,null,2)],{type:"application/json"});
+ const a=document.createElement("a");
+ a.href=URL.createObjectURL(blob);
+ a.download="team9-winners.json";
+ a.click();
+};
+</script>
+</body>
+</html>
